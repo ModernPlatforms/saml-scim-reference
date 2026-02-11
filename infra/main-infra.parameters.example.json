@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "saml-scim-ref"
+    },
+    "environmentName": {
+      "value": "stg"
+    },
+    "location": {
+      "value": "australiaeast"
+    },
+    "sqlAdminLogin": {
+      "value": "sqladmin"
+    },
+    "sqlAdminPassword": {
+      "value": "CHANGE_ME"
+    }
+  }
+}

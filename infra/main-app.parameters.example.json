@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "saml-scim-ref"
+    },
+    "environmentName": {
+      "value": "stg"
+    },
+    "location": {
+      "value": "australiaeast"
+    },
+    "sqlAdminLogin": {
+      "value": "sqladmin"
+    },
+    "sqlAdminPassword": {
+      "value": "CHANGE_ME"
+    },
+    "scimBearerToken": {
+      "value": "CHANGE_ME_TO_RANDOM_TOKEN"
+    },
+    "samlEntityId": {
+      "value": "https://your-app.azurecontainerapps.io/saml"
+    },
+    "samlReturnUrl": {
+      "value": "https://your-app.azurecontainerapps.io/"
+    },
+    "samlIdpEntityId": {
+      "value": "https://sts.windows.net/YOUR-TENANT-ID/"
+    },
+    "samlIdpMetadataUrl": {
+      "value": "https://login.microsoftonline.com/YOUR-TENANT-ID/federationmetadata/2007-06/federationmetadata.xml"
+    },
+    "imageTag": {
+      "value": "latest"
+    }
+  }
+}
