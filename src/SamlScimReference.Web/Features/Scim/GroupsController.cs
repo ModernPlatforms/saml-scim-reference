@@ -141,6 +141,109 @@ public class GroupsController : ControllerBase
         return Ok(MapToScimGroup(updatedGroup));
     }
 
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> PatchGroup(string id, [FromBody] ScimPatchRequest patchRequest)
+    {
+        var group = await _context.Groups
+            .Include(g => g.UserGroups)
+            .FirstOrDefaultAsync(g => g.Id == id);
+        
+        if (group == null)
+        {
+            return NotFound(new ScimError { Status = "404", Detail = "Group not found" });
+        }
+
+        foreach (var operation in patchRequest.Operations ?? new List<ScimPatchOperation>())
+        {
+            var op = operation.Op?.ToLower();
+
+            if (op == "add" && operation.Path?.ToLower() == "members")
+            {
+                // Add members to group
+                if (operation.Value != null)
+                {
+                    var members = ParseMembers(operation.Value);
+                    foreach (var member in members)
+                    {
+                        if (!group.UserGroups.Any(ug => ug.UserId == member.Value))
+                        {
+                            var user = await _context.Users.FindAsync(member.Value);
+                            if (user != null)
+                            {
+                                _context.UserGroups.Add(new UserGroup
+                                {
+                                    UserId = user.Id,
+                                    GroupId = group.Id
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            else if (op == "remove" && operation.Path?.ToLower().StartsWith("members") == true)
+            {
+                // Remove members from group
+                // Path format: members[value eq "userId"]
+                var userId = ExtractUserIdFromPath(operation.Path);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    var userGroup = group.UserGroups.FirstOrDefault(ug => ug.UserId == userId);
+                    if (userGroup != null)
+                    {
+                        _context.UserGroups.Remove(userGroup);
+                    }
+                }
+            }
+            else if (op == "replace")
+            {
+                // Handle displayName updates
+                if (operation.Path?.ToLower() == "displayname" && operation.Value is string displayName)
+                {
+                    group.DisplayName = displayName;
+                }
+                else if (operation.Value != null)
+                {
+                    var jsonElement = (System.Text.Json.JsonElement)operation.Value;
+                    if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        if (jsonElement.TryGetProperty("displayName", out var displayNameProp))
+                        {
+                            group.DisplayName = displayNameProp.GetString() ?? group.DisplayName;
+                        }
+                        if (jsonElement.TryGetProperty("members", out var membersProp))
+                        {
+                            // Replace all members
+                            _context.UserGroups.RemoveRange(group.UserGroups);
+                            var members = ParseMembers(membersProp);
+                            foreach (var member in members)
+                            {
+                                var user = await _context.Users.FindAsync(member.Value);
+                                if (user != null)
+                                {
+                                    _context.UserGroups.Add(new UserGroup
+                                    {
+                                        UserId = user.Id,
+                                        GroupId = group.Id
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        group.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var updatedGroup = await _context.Groups
+            .Include(g => g.UserGroups)
+            .ThenInclude(ug => ug.User)
+            .FirstAsync(g => g.Id == id);
+
+        return Ok(MapToScimGroup(updatedGroup));
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteGroup(string id)
     {
@@ -155,6 +258,40 @@ public class GroupsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private List<ScimGroupMember> ParseMembers(object value)
+    {
+        var members = new List<ScimGroupMember>();
+        
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in jsonElement.EnumerateArray())
+                {
+                    if (item.TryGetProperty("value", out var valueProp))
+                    {
+                        members.Add(new ScimGroupMember
+                        {
+                            Value = valueProp.GetString() ?? "",
+                            Display = item.TryGetProperty("display", out var displayProp) 
+                                ? displayProp.GetString() ?? "" 
+                                : ""
+                        });
+                    }
+                }
+            }
+        }
+        
+        return members;
+    }
+
+    private string? ExtractUserIdFromPath(string path)
+    {
+        // Extract userId from path like: members[value eq "userId"]
+        var match = System.Text.RegularExpressions.Regex.Match(path, @"members\[value eq ""([^""]+)""\]");
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private ScimGroup MapToScimGroup(Group group)

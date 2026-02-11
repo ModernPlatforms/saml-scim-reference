@@ -127,11 +127,90 @@ public class UsersController : ControllerBase
     }
 
     [HttpPatch("{id}")]
-    public async Task<IActionResult> PatchUser(string id, [FromBody] object patchRequest)
+    public async Task<IActionResult> PatchUser(string id, [FromBody] ScimPatchRequest patchRequest)
     {
-        // For simplicity, treating PATCH like PUT
-        // Full SCIM PATCH support would require parsing operations
-        return NotFound(new ScimError { Status = "501", Detail = "PATCH not fully implemented - use PUT" });
+        var user = await _context.Users.FindAsync(id);
+        
+        if (user == null)
+        {
+            return NotFound(new ScimError { Status = "404", Detail = "User not found" });
+        }
+
+        // Process each operation in the patch request
+        foreach (var operation in patchRequest.Operations ?? new List<ScimPatchOperation>())
+        {
+            if (operation.Op?.ToLower() == "replace")
+            {
+                // Handle path-based updates
+                if (!string.IsNullOrEmpty(operation.Path))
+                {
+                    var path = operation.Path.ToLower();
+                    if (path == "active" && operation.Value is bool activeValue)
+                    {
+                        user.Active = activeValue;
+                    }
+                    else if (path.Contains("emails") && operation.Value is List<object> emails)
+                    {
+                        // Handle email updates
+                        var firstEmail = emails.FirstOrDefault();
+                        if (firstEmail != null)
+                        {
+                            var emailValue = System.Text.Json.JsonSerializer.Deserialize<ScimEmail>(
+                                System.Text.Json.JsonSerializer.Serialize(firstEmail));
+                            user.Email = emailValue?.Value;
+                        }
+                    }
+                }
+                // Handle value-based updates (no path specified)
+                else if (operation.Value != null)
+                {
+                    var jsonElement = (System.Text.Json.JsonElement)operation.Value;
+                    if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        if (jsonElement.TryGetProperty("active", out var activeProp))
+                        {
+                            user.Active = activeProp.GetBoolean();
+                        }
+                        if (jsonElement.TryGetProperty("userName", out var userNameProp))
+                        {
+                            user.UserName = userNameProp.GetString() ?? user.UserName;
+                        }
+                        if (jsonElement.TryGetProperty("externalId", out var externalIdProp))
+                        {
+                            user.ExternalId = externalIdProp.GetString();
+                        }
+                        if (jsonElement.TryGetProperty("name", out var nameProp))
+                        {
+                            if (nameProp.TryGetProperty("givenName", out var givenNameProp))
+                            {
+                                user.GivenName = givenNameProp.GetString();
+                            }
+                            if (nameProp.TryGetProperty("familyName", out var familyNameProp))
+                            {
+                                user.FamilyName = familyNameProp.GetString();
+                            }
+                        }
+                        if (jsonElement.TryGetProperty("emails", out var emailsProp))
+                        {
+                            if (emailsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                var firstEmail = emailsProp.EnumerateArray().FirstOrDefault();
+                                if (firstEmail.ValueKind == System.Text.Json.JsonValueKind.Object && 
+                                    firstEmail.TryGetProperty("value", out var emailValue))
+                                {
+                                    user.Email = emailValue.GetString();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(MapToScimUser(user));
     }
 
     [HttpDelete("{id}")]

@@ -277,12 +277,6 @@ This project uses **Vertical Slice Architecture**:
 - Verify Bearer token in request matches `Scim:BearerToken` in configuration
 - Check Authorization header format: `Bearer <token>`
 
-### Database file not found in Azure
-
-- Ensure Azure Files volume is mounted to `/app/data`
-- Check Container App logs for permission issues
-- Verify `Database__Path` environment variable is `/app/data/app.db`
-
 ## License
 
 MIT
