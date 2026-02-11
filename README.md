@@ -97,6 +97,37 @@ curl -X POST http://localhost:5000/scim/v2/Users \
 
 Now you can log in with SAML using `testuser@example.com`.
 
+## Admin Access
+
+Admin access is controlled by SAML role claims, not the database. To grant a user admin access:
+
+### For Azure AD (Production)
+
+1. Go to **Azure Portal** > **Enterprise Applications** > Your App
+2. Navigate to **Single sign-on** > **Attributes & Claims**
+3. Add a new claim:
+   - **Name**: `role`
+   - **Source**: Select appropriate source (e.g., user.assignedroles)
+   - **Value**: `Admin`
+4. Assign the role to specific users/groups
+
+### For Local Development
+
+1. **Option 1**: Configure local SAML IdP to send Admin role claim
+
+2. **Option 2**: Bypass authentication (development only)
+   ```bash
+   $env:BYPASS_AUTH="true"
+   dotnet run
+   ```
+
+3. **Check user provisioning status**:
+   ```bash
+   .\scripts\grant-admin.ps1 -Email "user@example.com"
+   ```
+
+**Note**: Users must be provisioned via SCIM before they can log in, regardless of admin status.
+
 ## Docker
 
 ### Build and Run with Docker Compose
