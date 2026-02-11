@@ -1,0 +1,47 @@
+@page "/claims"
+@using System.Security.Claims
+@attribute [Authorize]
+
+<PageTitle>My Claims</PageTitle>
+
+<h1>Claims Debugging</h1>
+
+<AuthorizeView>
+    <Authorized>
+        <h3>All Claims:</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var claim in context.User.Claims.OrderBy(c => c.Type))
+                {
+                    <tr>
+                        <td><code>@claim.Type</code></td>
+                        <td>@claim.Value</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h3>Role Claims Check:</h3>
+        <ul>
+            <li>ClaimTypes.Role: @string.Join(", ", context.User.FindAll(ClaimTypes.Role).Select(c => c.Value))</li>
+            <li>http://schemas.microsoft.com/ws/2008/06/identity/claims/role: @string.Join(", ", context.User.FindAll("http://schemas.microsoft.com/ws/2008/06/identity/claims/role").Select(c => c.Value))</li>
+            <li>"role": @string.Join(", ", context.User.FindAll("role").Select(c => c.Value))</li>
+        </ul>
+
+        <h3>Identity Info:</h3>
+        <ul>
+            <li>Name: @context.User.Identity?.Name</li>
+            <li>IsAuthenticated: @context.User.Identity?.IsAuthenticated</li>
+            <li>AuthenticationType: @context.User.Identity?.AuthenticationType</li>
+        </ul>
+    </Authorized>
+    <NotAuthorized>
+        <p>You must be logged in to view claims.</p>
+    </NotAuthorized>
+</AuthorizeView>
