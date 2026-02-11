@@ -1,0 +1,23 @@
+@page "/login-success"
+@inject NavigationManager Navigation
+
+<PageTitle>Login Successful</PageTitle>
+
+<div class="container mt-5">
+    <div class="text-center">
+        <h2>Login Successful!</h2>
+        <p>Redirecting to home page...</p>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Small delay to ensure auth cookie is fully established
+            await Task.Delay(500);
+            Navigation.NavigateTo("/", false); // false = no force reload, preserve auth state
+        }
+    }
+}

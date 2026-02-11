@@ -1,0 +1,21 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Database__Path=/app/data/app.db
+      - Saml__EntityId=http://localhost:5000/saml
+      - Saml__ReturnUrl=http://localhost:5000/
+      - Saml__IdpEntityId=https://sts.windows.net/YOUR-TENANT-ID/
+      - Saml__IdpMetadataUrl=https://login.microsoftonline.com/YOUR-TENANT-ID/federationmetadata/2007-06/federationmetadata.xml
+      - Scim__BearerToken=your-secret-scim-token-change-this
+    volumes:
+      - saml-scim-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  saml-scim-data:

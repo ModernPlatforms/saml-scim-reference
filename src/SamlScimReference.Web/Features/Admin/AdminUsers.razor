@@ -1,0 +1,200 @@
+@page "/admin"
+@page "/admin/users"
+@using Microsoft.AspNetCore.Authorization
+@using SamlScimReference.Web.Features.Admin
+@attribute [Authorize]
+@inject AdminService AdminService
+@inject NavigationManager Navigation
+
+<PageTitle>Admin - User Management</PageTitle>
+
+<div class="container-fluid mt-4">
+    @if (!isAdmin)
+    {
+        <div class="alert alert-danger">
+            <h4><i class="bi bi-shield-exclamation"></i> Access Denied</h4>
+            <p>You do not have administrator privileges. Only users with the 'Admin' role can access this page.</p>
+            <a href="/" class="btn btn-primary">Return to Profile</a>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3><i class="bi bi-people-fill"></i> User Administration</h3>
+                <p class="mb-0">SCIM-Provisioned Users</p>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" 
+                               class="form-control" 
+                               placeholder="Search by username or email..." 
+                               @bind="searchQuery" 
+                               @bind:event="oninput"
+                               @onkeyup="FilterUsers" />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="showInactive" 
+                                   @bind="showInactive"
+                                   @bind:event="oninput"
+                                   @onchange="FilterUsers" />
+                            <label class="form-check-label" for="showInactive">
+                                Show Inactive Users
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                @if (filteredUsers == null)
+                {
+                    <p><em>Loading users...</em></p>
+                }
+                else if (!filteredUsers.Any())
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No users found matching your criteria.
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Total Users: <strong>@filteredUsers.Count</strong>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Groups</th>
+                                    <th>Created</th>
+                                    <th>Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in filteredUsers)
+                                {
+                                    <tr class="@(user.Active ? "" : "table-secondary")">
+                                        <td>
+                                            <strong>@user.UserName</strong>
+                                            @if (!string.IsNullOrEmpty(user.ExternalId))
+                                            {
+                                                <br /><small class="text-muted">ExtID: @user.ExternalId</small>
+                                            }
+                                        </td>
+                                        <td>@user.Email</td>
+                                        <td>@GetFullName(user)</td>
+                                        <td>
+                                            @if (user.Active)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (user.Groups.Any())
+                                            {
+                                                @foreach (var group in user.Groups)
+                                                {
+                                                    <span class="badge bg-info text-dark me-1">@group</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td><small>@user.CreatedAt.ToLocalTime().ToString("g")</small></td>
+                                        <td>
+                                            @if (user.LastLoginAt.HasValue)
+                                            {
+                                                <small>@user.LastLoginAt.Value.ToLocalTime().ToString("g")</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Never</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="bi bi-info-circle"></i> About SCIM Provisioning</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    Users displayed above have been provisioned through SCIM (System for Cross-domain Identity Management).
+                    These users are synced from your identity provider (Azure AD, Okta, etc.).
+                </p>
+                <ul>
+                    <li><strong>SCIM Endpoint:</strong> <code>/scim/v2/Users</code> and <code>/scim/v2/Groups</code></li>
+                    <li><strong>Authentication:</strong> Bearer token (configured in appsettings.json)</li>
+                    <li>Only SCIM-provisioned users can log in via SAML</li>
+                    <li>User data is the source of truth from your identity provider</li>
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AdminUserDto>? allUsers;
+    private List<AdminUserDto>? filteredUsers;
+    private string searchQuery = "";
+    private bool showInactive = false;
+    private bool isAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAdmin = await AdminService.IsCurrentUserAdminAsync();
+        
+        if (isAdmin)
+        {
+            allUsers = await AdminService.GetAllUsersAsync();
+            FilterUsers();
+        }
+    }
+
+    private void FilterUsers()
+    {
+        if (allUsers == null)
+        {
+            filteredUsers = null;
+            return;
+        }
+
+        filteredUsers = allUsers
+            .Where(u => showInactive || u.Active)
+            .Where(u => string.IsNullOrEmpty(searchQuery) ||
+                       u.UserName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                       (u.Email != null && u.Email.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) ||
+                       GetFullName(u).Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private string GetFullName(AdminUserDto user)
+    {
+        if (!string.IsNullOrEmpty(user.GivenName) || !string.IsNullOrEmpty(user.FamilyName))
+        {
+            return $"{user.GivenName} {user.FamilyName}".Trim();
+        }
+        return "-";
+    }
+}

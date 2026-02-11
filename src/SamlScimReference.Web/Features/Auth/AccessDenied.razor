@@ -1,0 +1,33 @@
+@page "/access-denied"
+
+<PageTitle>Access Denied</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3><i class="bi bi-exclamation-triangle"></i> Access Denied</h3>
+                </div>
+                <div class="card-body">
+                    <h4>User Not Provisioned</h4>
+                    <p>
+                        Your SAML authentication was successful, but you are not currently provisioned in this application.
+                    </p>
+                    <p>
+                        This application requires users to be provisioned via SCIM before they can access it. 
+                        Please contact your administrator to provision your account.
+                    </p>
+                    <hr />
+                    <h5>What does this mean?</h5>
+                    <ul>
+                        <li>Your organization's identity provider successfully authenticated you</li>
+                        <li>However, your user account has not been created in this application through SCIM provisioning</li>
+                        <li>An administrator needs to enable SCIM provisioning in your identity provider (Azure AD, Okta, etc.)</li>
+                    </ul>
+                    <a href="/login" class="btn btn-primary mt-3">Return to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
